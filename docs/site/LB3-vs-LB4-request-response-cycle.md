@@ -54,7 +54,7 @@ very powerful extension mechanism.
 
 In LoopBack 4
 [middleware.json](https://loopback.io/doc/en/lb3/middleware.json.html)
-is not require anymore because of architectural changes.
+is not required anymore because of architectural changes.
 
 #### Models
 
@@ -190,3 +190,92 @@ refer to
 
 ### Request/response pathway
 
+The request/response architecture has undergone a drastic change in LoopBack 4.
+LoopBack 3's
+[phase-based middleware routing system](https://loopback.io/doc/en/lb3/Routing.html)
+is now replaced by a
+[sequence handler](https://loopback.io/doc/en/lb4/apidocs.rest.defaultsequence.html)
+that sits infront of a
+[routing table](https://loopback.io/doc/en/lb4/apidocs.rest.routingtable.html).
+
+#### LoopBack 3
+
+[LB3 image]
+
+In LoopBack 3, middleware are added using Express APIs and via phases in
+`middleware.json` or using
+[app.middleware()](https://apidocs.loopback.io/loopback/#app-middleware).
+Request to the app passes through the middleware chain in the following order.
+
+- `initial:before`
+- `initial`
+- `initial:after`
+- `session:before`
+- `session`
+- `session:after`
+- `auth:before`
+- `auth`
+- `auth:after`
+- `parse:before`
+- `parse`
+- `parse:after`
+- `routes:before`
+- [Express middleware](http://expressjs.com/guide/writing-middleware.html)
+- [Components](https://loopback.io/doc/en/lb3/LoopBack-components.html)
+- [Boot scripts](https://loopback.io/doc/en/lb3/Defining-boot-scripts.html)
+- `routes`
+- `routes:after`
+- `files:before`
+- `files`
+- `files:after`
+- `final:before`
+- `final`
+- `final:after`
+
+Any middleware higher up in the chain may terminate the request by sending a
+response back to the client.
+
+REST API middleware is added in the `routes` phase and error handlers in the
+`final` and `final:after` phases.
+
+The REST API middleware is responsible for creating REST API endpoints out of
+the models in the app. It then uses the configured datasource for connecting
+and querying the undelying database for the corresponding REST requests.
+
+##### Access to request/response object
+
+- Req-res objects accessible in all middleware
+- How do we access them in remote methods?
+- How do we access them in operation hooks?
+- Is there any other API where we can usefully access them?
+
+We are describing these so users may learn about the equivalent or absence in
+LB4 in the next section.
+
+##### Access to submitted data
+
+- How can users access client submitted data?
+- What is responsible for formatting the data?
+- What is responsible for validating the data?
+- Where can users access validated and formatted data?
+
+#### LoopBack 4
+
+[LB4 image]
+
+- Describe the sequence handler-based architecture in LB4 briefly
+- Link to LB4 res-res doc
+
+##### Access to request/response object
+
+- Where are the points where req-res objects can be accessed?
+- How do we make req-res objects available to various components of LB4?
+- What is the remote methods equivalent in LB4?
+- What is the operation hooks in LB4?
+
+##### Access to submitted data
+
+- How can users access client submitted data?
+- What is responsible for formatting the data?
+- What is responsible for validating the data?
+- Where can users access validated and formatted data?
