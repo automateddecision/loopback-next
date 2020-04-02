@@ -188,6 +188,61 @@ refer to
 [Migrating boot scripts](https://loopback.io/doc/en/lb4/migration-boot-scripts.html)
 ." %}
 
+#### Remote methods
+
+[Remote methods](https://loopback.io/doc/en/lb3/Remote-methods.html) add custom
+endpoints to a model's REST interface.
+
+{% include code-caption.html content="server/models/person.js" %}
+
+```js
+module.exports = function(Person) {
+  Person.greet = function(message, cb) {
+    cb(null, 'Greetings: ' + message);
+  }
+
+  Person.remoteMethod('greet', {
+    accepts: {arg: 'message', type: 'string'},
+    returns: {arg: 'message', type: 'string'}
+  });
+};
+```
+
+The above remote method's functionality can be migrated to a controller in
+LoopBack 4 in the following manner.
+
+{% include code-caption.html content="src/controllers/person.ts" %}
+
+```ts
+import {post, requestBody} from '@loopback/rest';
+
+export type Greeting = {
+  message: string;
+}
+
+const spec = {
+  content: {'application/json': {schema: {
+    type: 'object',
+    properties: {
+      message: {
+        type: 'string'
+      }
+    }
+  }}}
+};
+
+export class PersonController {
+  @post('/person/greet', {
+    responses: {
+      '200': spec,
+    },
+  })
+  greet(@requestBody(spec) greeting: Greeting): string {
+    return 'Greetings: ' + greeting.message;
+  }
+}
+```
+
 ### Request/response pathway
 
 The request/response architecture has undergone a drastic change in LoopBack 4.
@@ -200,7 +255,7 @@ that sits infront of a
 
 #### LoopBack 3
 
-[LB3 image]
+![LoopBack 3 request/response components](./imgs/lb3-req-res.png)
 
 In LoopBack 3, middleware are added using Express APIs and via phases in
 `middleware.json` or using
@@ -242,26 +297,22 @@ The REST API middleware is responsible for creating REST API endpoints out of
 the models in the app. It then uses the configured datasource for connecting
 and querying the undelying database for the corresponding REST requests.
 
-##### Access to request/response object
+##### Access to the request/response object
 
-- Req-res objects accessible in all middleware
-- How do we access them in remote methods?
-- How do we access them in operation hooks?
-- Is there any other API where we can usefully access them?
+Since LoopBack 3 uses the Express middleware pattern, the request and response
+objects can always be accessed in middleware functions.
 
-We are describing these so users may learn about the equivalent or absence in
-LB4 in the next section.
-
-##### Access to submitted data
+##### User-submitted data
 
 - How can users access client submitted data?
-- What is responsible for formatting the data?
 - What is responsible for validating the data?
+- What is responsible for formatting the data?
+- What is responsible for parsing filters?
 - Where can users access validated and formatted data?
 
 #### LoopBack 4
 
-[LB4 image]
+![LoopBack 4 request/response components](./imgs/lb4-req-res.png)
 
 - Describe the sequence handler-based architecture in LB4 briefly
 - Link to LB4 res-res doc
@@ -273,9 +324,10 @@ LB4 in the next section.
 - What is the remote methods equivalent in LB4?
 - What is the operation hooks in LB4?
 
-##### Access to submitted data
+##### User-submitted data
 
 - How can users access client submitted data?
 - What is responsible for formatting the data?
 - What is responsible for validating the data?
+- What is responsible for parsing filters?
 - Where can users access validated and formatted data?
