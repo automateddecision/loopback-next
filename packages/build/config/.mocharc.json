@@ -2,6 +2,7 @@
   "require": "source-map-support/register",
   "recursive": true,
   "exit": true,
-  "reporter": "dot"
+  "reporter": "dot",
+  "parallel": true
 }
 
