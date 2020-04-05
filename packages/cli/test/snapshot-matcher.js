@@ -17,10 +17,62 @@ move this file to a standalone package so that all Mocha users can use it.
 const chalk = require('chalk');
 const assert = require('assert');
 const path = require('path');
+const debug = require('debug')('loopback:cli:test');
 
 module.exports = {
   initializeSnapshots,
 };
+
+// Cached states in the process for snapshots
+// key: snapshot director
+// value: state
+const states = new Map();
+
+// Unfortunately root hooks are not re-run by mocha for each job in the same
+// worker process during parallel testing
+beforeEach(function injectCurrentTest() {
+  // eslint-disable-next-line no-invalid-this
+  const currentTest = this.currentTest;
+  debug(
+    '[%d] Injecting current test %s',
+    process.pid,
+    getFullTestName(currentTest),
+  );
+  // This global hook is called per test
+  for (const state of states.values()) {
+    state.currentTest = currentTest;
+    state.currentTest.__snapshotCounter = 1;
+  }
+});
+
+// This global hook is called after mocha is finished
+after(async function updateSnapshots() {
+  for (const state of states.values()) {
+    const tasks = Object.entries(state.snapshots).map(([f, data]) => {
+      const snapshotFile = buildSnapshotFilePath(state.snapshotDir, f);
+      return writeSnapshotData(snapshotFile, data);
+    });
+    await Promise.all(tasks);
+  }
+});
+
+after(() => {
+  debug(
+    '[%d] Resetting states for snapshots',
+    process.pid,
+    Array.from(states.keys()),
+  );
+  for (const state of states.values()) {
+    resetState(state);
+  }
+});
+
+function resetState(state) {
+  state.currentTest = undefined;
+  state.snapshotErrors = false;
+  state.snapshots = Object.create(null);
+  return state;
+}
 
 /**
  * Create a function to match the given value against a pre-recorder snapshot.
@@ -43,18 +95,16 @@ module.exports = {
  * ```
  */
 function initializeSnapshots(snapshotDir) {
-  let currentTest;
-  let snapshotErrors = false;
-
-  beforeEach(function setupSnapshots() {
-    // eslint-disable-next-line no-invalid-this
-    currentTest = this.currentTest;
-    currentTest.__snapshotCounter = 1;
-  });
+  debug('[%d] Initializing snapshots for %s', process.pid, snapshotDir);
+  let state = states.get(snapshotDir);
+  if (state == null) {
+    state = resetState({snapshotDir});
+    states.set(snapshotDir, state);
+  }
 
   if (!process.env.UPDATE_SNAPSHOTS) {
     process.on('exit', function printSnapshotHelp() {
-      if (!snapshotErrors) return;
+      if (!state.snapshotErrors) return;
       console.log(
         chalk.red(`
 Some of the snapshot-based tests have failed. Please carefully inspect
@@ -66,38 +116,32 @@ variable to update snapshots.
     });
     return function expectToMatchSnapshot(actual) {
       try {
-        matchSnapshot(snapshotDir, currentTest, actual);
+        matchSnapshot(state, actual);
       } catch (err) {
-        snapshotErrors = true;
+        state.snapshotErrors = true;
         throw err;
       }
     };
   }
 
-  const snapshots = Object.create(null);
-  after(async function updateSnapshots() {
-    const tasks = Object.entries(snapshots).map(([f, data]) => {
-      const snapshotFile = buildSnapshotFilePath(snapshotDir, f);
-      return writeSnapshotData(snapshotFile, data);
-    });
-    await Promise.all(tasks);
-  });
-
   return function expectToRecordSnapshot(actual) {
-    recordSnapshot(snapshots, currentTest, actual);
+    recordSnapshot(state, actual);
   };
 }
 
-function matchSnapshot(snapshotDir, currentTest, actualValue) {
+function matchSnapshot(state, actualValue) {
   assert(
     typeof actualValue === 'string',
     'Snapshot matcher supports string values only, but was called with ' +
       typeof actualValue,
   );
 
-  const snapshotFile = buildSnapshotFilePath(snapshotDir, currentTest.file);
+  const snapshotFile = buildSnapshotFilePath(
+    state.snapshotDir,
+    state.currentTest.file,
+  );
   const snapshotData = loadSnapshotData(snapshotFile);
-  const key = buildSnapshotKey(currentTest);
+  const key = buildSnapshotKey(state.currentTest);
 
   if (!(key in snapshotData)) {
     throw new Error(
@@ -119,17 +163,19 @@ function matchSnapshot(snapshotDir, currentTest, actualValue) {
   );
 }
 
-function recordSnapshot(snapshots, currentTest, actualValue) {
+function recordSnapshot(state, actualValue) {
   assert(
     typeof actualValue === 'string',
     'Snapshot matcher supports string values only, but was called with ' +
       typeof actualValue,
   );
 
-  const key = buildSnapshotKey(currentTest);
-  const testFile = currentTest.file;
-  if (!snapshots[testFile]) snapshots[testFile] = Object.create(null);
-  snapshots[testFile][key] = actualValue;
+  const key = buildSnapshotKey(state.currentTest);
+  const testFile = state.currentTest.file;
+  if (!state.snapshots[testFile]) {
+    state.snapshots[testFile] = Object.create(null);
+  }
+  state.snapshots[testFile][key] = actualValue;
 }
 
 function buildSnapshotKey(currentTest) {
