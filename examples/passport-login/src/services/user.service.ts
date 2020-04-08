@@ -67,7 +67,10 @@ export class PassportUserIdentityService
     try {
       profile = await this.userIdentityRepository.findById(userIdentity.id);
     } catch (err) {
-      console.log(err);
+      // no need to throw an error if entity is not found
+      if (!(err.code === 'ENTITY_NOT_FOUND')) {
+        throw err;
+      }
     }
 
     if (!profile) {

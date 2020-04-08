@@ -3,11 +3,7 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {
-  AuthenticationStrategy,
-  asAuthStrategy,
-  AuthenticationBindings,
-} from '@loopback/authentication';
+import {AuthenticationStrategy, asAuthStrategy} from '@loopback/authentication';
 import {StrategyAdapter} from '@loopback/authentication-passport';
 import {Request, RedirectRoute} from '@loopback/rest';
 import {UserProfile, securityId} from '@loopback/security';
@@ -16,14 +12,8 @@ import {bind} from '@loopback/context';
 import {Strategy, IVerifyOptions} from 'passport-local';
 import {repository} from '@loopback/repository';
 import {UserRepository} from '../repositories';
-import {extensionFor} from '@loopback/core';
 
-@bind(
-  asAuthStrategy,
-  extensionFor(
-    AuthenticationBindings.AUTHENTICATION_STRATEGY_EXTENSION_POINT_NAME,
-  ),
-)
+@bind(asAuthStrategy)
 export class LocalAuthStrategy implements AuthenticationStrategy {
   name = 'local';
   passportstrategy: Strategy;

@@ -32,6 +32,16 @@ export class ExpressServer {
     this.lbApp = new Oauth2LoginApplication(options);
 
     /**
+     * bind the oauth2 options to lb app
+     * TODO:
+     *    1. allow to change client_id and client_secret after application startup
+     *    2. allow to read oauth2 app registrations from a datastore
+     */
+    this.lbApp.bind('facebookOAuth2Options').to(options.facebookOptions);
+    this.lbApp.bind('googleOAuth2Options').to(options.googleOptions);
+    this.lbApp.bind('customOAuth2Options').to(options.oauth2Options);
+
+    /**
      * Mount the LoopBack app in express:
      *
      * We are able to wrap the LoopBack apis with express middleware

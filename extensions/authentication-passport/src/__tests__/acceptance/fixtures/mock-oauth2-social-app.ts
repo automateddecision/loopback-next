@@ -91,6 +91,13 @@ const users = [
     email: 'usr2@lb2.com',
     signingKey: 'BuIx=+',
   },
+  {
+    id: 1003,
+    username: 'testuser',
+    password: 'xyz',
+    email: 'test@example.com',
+    signingKey: 'HuYa=+',
+  },
 ];
 
 /**
