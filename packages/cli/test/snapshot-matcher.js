@@ -19,53 +19,58 @@ const assert = require('assert');
 const path = require('path');
 const debug = require('debug')('loopback:cli:test');
 
-module.exports = {
-  initializeSnapshots,
-};
-
 // Cached states in the process for snapshots
 // key: snapshot director
 // value: state
 const states = new Map();
 
-// Unfortunately root hooks are not re-run by mocha for each job in the same
-// worker process during parallel testing
-beforeEach(function injectCurrentTest() {
-  // eslint-disable-next-line no-invalid-this
-  const currentTest = this.currentTest;
-  debug(
-    '[%d] Injecting current test %s',
-    process.pid,
-    getFullTestName(currentTest),
-  );
-  // This global hook is called per test
-  for (const state of states.values()) {
-    state.currentTest = currentTest;
-    state.currentTest.__snapshotCounter = 1;
-  }
-});
+const mochaHooks = {
+  // Unfortunately root hooks are not re-run by mocha for each job in the same
+  // worker process during parallel testing
+  beforeEach: function injectCurrentTest() {
+    // eslint-disable-next-line no-invalid-this
+    const currentTest = this.currentTest;
+    debug(
+      '[%d] Injecting current test %s',
+      process.pid,
+      getFullTestName(currentTest),
+    );
+    // This global hook is called per test
+    for (const state of states.values()) {
+      state.currentTest = currentTest;
+      state.currentTest.__snapshotCounter = 1;
+    }
+  },
 
-// This global hook is called after mocha is finished
-after(async function updateSnapshots() {
-  for (const state of states.values()) {
-    const tasks = Object.entries(state.snapshots).map(([f, data]) => {
-      const snapshotFile = buildSnapshotFilePath(state.snapshotDir, f);
-      return writeSnapshotData(snapshotFile, data);
-    });
-    await Promise.all(tasks);
-  }
-});
+  // This global hook is called after mocha is finished
+  afterAll: [
+    async function updateSnapshots() {
+      for (const state of states.values()) {
+        const tasks = Object.entries(state.snapshots).map(([f, data]) => {
+          const snapshotFile = buildSnapshotFilePath(state.snapshotDir, f);
+          return writeSnapshotData(snapshotFile, data);
+        });
+        await Promise.all(tasks);
+      }
+    },
 
-after(() => {
-  debug(
-    '[%d] Resetting states for snapshots',
-    process.pid,
-    Array.from(states.keys()),
-  );
-  for (const state of states.values()) {
-    resetState(state);
-  }
-});
+    () => {
+      debug(
+        '[%d] Resetting states for snapshots',
+        process.pid,
+        Array.from(states.keys()),
+      );
+      for (const state of states.values()) {
+        resetState(state);
+      }
+    },
+  ],
+};
+
+module.exports = {
+  initializeSnapshots,
+  mochaHooks,
+};
 
 function resetState(state) {
   state.currentTest = undefined;
