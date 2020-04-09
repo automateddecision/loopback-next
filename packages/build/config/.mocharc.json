@@ -1,8 +1,9 @@
 {
-  "require": ["source-map-support/register", "./test/snapshot-matcher.js"],
+  "require": ["source-map-support/register"],
   "recursive": true,
   "exit": true,
   "reporter": "dot",
+  "timeout": 5000,
   "parallel": true
 }
 
